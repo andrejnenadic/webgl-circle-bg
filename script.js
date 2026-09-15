@@ -81,6 +81,12 @@ document.addEventListener("DOMContentLoaded", async () => {
   const program = await createProgram(gl, "./frag.glsl", "./vert.glsl");
   if (!program) return;
 
+  gl.useProgram(program);
+  const uniformLocs = {
+    seed: gl.getUniformLocation(program, "u_seed"),
+    time: gl.getUniformLocation(program, "u_time"),
+  };
+
   const vao = createBuffers(gl);
 
   let paused = document.hidden;
@@ -129,6 +135,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     gl.clear(gl.COLOR_BUFFER_BIT);
     gl.bindVertexArray(vao);
     gl.useProgram(program);
+
+    gl.uniform1f(uniformLocs.seed, seed);
+    gl.uniform1f(uniformLocs.time, now / 1000);
 
     gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_INT, 0);
   }
