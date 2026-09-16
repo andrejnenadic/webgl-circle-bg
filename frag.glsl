@@ -13,6 +13,7 @@ uniform int u_band_count;
 uniform float u_band_base_width;
 uniform float u_band_base_speed;
 uniform float u_band_min_speed;
+uniform float u_aspect_ratio;
 uniform vec3 u_base_color;
 
 float rand(float seed) { return fract(sin(seed * 6543.34588) * 43758.5453); }
@@ -20,7 +21,9 @@ float rand(float seed) { return fract(sin(seed * 6543.34588) * 43758.5453); }
 void main() {
   int N = max(u_band_count, 1);
 
-  float r = length(v_uv);
+  vec2 uv = vec2(v_uv.x * u_aspect_ratio, v_uv.y);
+
+  float r = length(uv);
   float band = floor(r * float(N));
   float band_seed = fract(rand(band + u_seed) * 26433.73457);
 
@@ -28,7 +31,7 @@ void main() {
   float band_top = (band + 1.0) / float(N);
 
   float uv_y = (r - band_bottom) / (band_top - band_bottom);
-  float uv_x = acos(normalize(v_uv).x) / (PI * .5);
+  float uv_x = acos(normalize(uv).x) / (PI * .5);
 
   float width = u_band_base_width + band_seed * .25;
   float band_mask = step(1. - width, uv_y) * (1. - step(width, uv_y));

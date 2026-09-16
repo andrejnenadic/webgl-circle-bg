@@ -143,6 +143,12 @@ document.addEventListener("DOMContentLoaded", async () => {
   );
 
   const vao = createBuffers(gl);
+  const setAspectRatio = () => {
+    uniformEditor.setUniformValue(
+      "u_aspect_ratio",
+      canvas.width / canvas.height,
+    );
+  };
 
   let paused = document.hidden;
   let lastFrameTime = 0;
@@ -208,6 +214,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     canvas.width = canvas.clientWidth * dpr;
     canvas.height = canvas.clientHeight * dpr;
     gl.viewport(0, 0, canvas.width, canvas.height);
+    setAspectRatio();
     draw(performance.now());
   }
   window.addEventListener("resize", onResize);
