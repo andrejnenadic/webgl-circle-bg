@@ -1,8 +1,11 @@
 const FPS = 24;
 const FRAME_TIME = 1000 / FPS;
 
-async function compileShader(gl, name, type) {
-  const code = await fetch(name).then((x) => x.text());
+async function loadText(path) {
+  return fetch(path).then((x) => x.text());
+}
+
+async function compileShader(gl, code, type, name) {
   const shader = gl.createShader(type);
   gl.shaderSource(shader, code);
   gl.compileShader(shader);
@@ -17,9 +20,19 @@ async function compileShader(gl, name, type) {
   return null;
 }
 
-async function createProgram(gl, fragPath, vertPath) {
-  const vert = await compileShader(gl, vertPath, gl.VERTEX_SHADER);
-  const frag = await compileShader(gl, fragPath, gl.FRAGMENT_SHADER);
+async function createProgram(gl, fragSource, vertSource) {
+  const vert = await compileShader(
+    gl,
+    vertSource,
+    gl.VERTEX_SHADER,
+    "vert.glsl",
+  );
+  const frag = await compileShader(
+    gl,
+    fragSource,
+    gl.FRAGMENT_SHADER,
+    "frag.glsl",
+  );
   if (!vert || !frag) return;
 
   const program = gl.createProgram();
@@ -35,6 +48,35 @@ async function createProgram(gl, fragPath, vertPath) {
   console.log(gl.getProgramInfoLog(program));
   gl.deleteProgram(program);
   return null;
+}
+
+function setUniformValue(gl, location, type, value) {
+  if (location == null || value == null) {
+    return;
+  }
+
+  switch (type) {
+    case "float":
+      gl.uniform1f(location, value);
+      break;
+    case "int":
+      gl.uniform1i(location, value);
+      break;
+    case "bool":
+      gl.uniform1i(location, value ? 1 : 0);
+      break;
+    case "vec2":
+      gl.uniform2f(location, value[0], value[1]);
+      break;
+    case "vec3":
+      gl.uniform3f(location, value[0], value[1], value[2]);
+      break;
+    case "vec4":
+      gl.uniform4f(location, value[0], value[1], value[2], value[3]);
+      break;
+    default:
+      break;
+  }
 }
 
 function createBuffers(gl) {
@@ -78,14 +120,27 @@ document.addEventListener("DOMContentLoaded", async () => {
   gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
   gl.enable(gl.BLEND);
 
-  const program = await createProgram(gl, "./frag.glsl", "./vert.glsl");
+  const [fragSource, vertSource] = await Promise.all([
+    loadText("./frag.glsl"),
+    loadText("./vert.glsl"),
+  ]);
+
+  const uniformEditor = window.createUniformEditor({
+    host: document.body,
+    shaderSource: fragSource,
+    onChange: () => draw(performance.now()),
+  });
+
+  const program = await createProgram(gl, fragSource, vertSource);
   if (!program) return;
 
   gl.useProgram(program);
-  const uniformLocs = {
-    seed: gl.getUniformLocation(program, "u_seed"),
-    time: gl.getUniformLocation(program, "u_time"),
-  };
+  const uniformLocs = new Map(
+    uniformEditor.uniforms.map((uniform) => [
+      uniform.name,
+      gl.getUniformLocation(program, uniform.name),
+    ]),
+  );
 
   const vao = createBuffers(gl);
 
@@ -136,8 +191,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     gl.bindVertexArray(vao);
     gl.useProgram(program);
 
-    gl.uniform1f(uniformLocs.seed, seed);
-    gl.uniform1f(uniformLocs.time, now / 1000);
+    const elapsedSeconds = now / 1000;
+    const values = uniformEditor.getUniformValues(elapsedSeconds);
+
+    for (const uniform of uniformEditor.uniforms) {
+      const location = uniformLocs.get(uniform.name);
+      setUniformValue(gl, location, uniform.type, values[uniform.name]);
+    }
 
     gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_INT, 0);
   }
